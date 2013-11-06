@@ -17,6 +17,7 @@
 Module :mod:`openquake.hazardlib.tom` contains implementations of probability
 density functions for earthquake temporal occurrence modeling.
 """
+import abc
 import math
 
 import numpy
@@ -25,22 +26,57 @@ import scipy.stats
 from openquake.hazardlib.slots import with_slots
 
 
-@with_slots
-class PoissonTOM(object):
+class BaseTOM(object):
     """
-    Poissonian temporal occurrence model.
+    Base class for temporal occurrence model.
 
     :param time_span:
         The time interval of interest, in years.
     :raises ValueError:
         If ``time_span`` is not positive.
     """
+    __metaclass__ = abc.ABCMeta
+
     __slots__ = ['time_span']
 
     def __init__(self, time_span):
         if time_span <= 0:
             raise ValueError('time_span must be positive')
         self.time_span = time_span
+
+    @abc.abstractmethod
+    def get_probability_no_exceedance(self, occurrence_rate, poes):
+        """
+        Compute and return, for a number of ground motion levels and sites,
+        the probability that a rupture with annual occurrence rate given by
+        ``occurrence_rate`` and able to cause ground motion values higher than
+        a given level at a site with probability ``poes``, does not cause any
+        exceedance in the time window specified by the ``time_span`` parameter
+        given in the constructor.
+
+        Method must be implemented by subclasses.
+
+        :param occurrence_rate:
+            The average number of events per year.
+        :param poes:
+            2D numpy array containing conditional probabilities the the a
+            rupture occurrence causes a ground shaking value exceeding a
+            ground motion level at a site. First dimension represent sites,
+            second dimension intensity measure levels. ``poes`` can be obtained
+            calling the :meth:`method
+            <openquake.hazardlib.gsim.base.GroundShakingIntensityModel.get_poes>`.
+        :return:
+            2D numpy array containing probabilities of no exceedance. First
+            dimension represents sites, second dimensions intensity measure
+            levels.
+        """
+
+
+@with_slots
+class PoissonTOM(BaseTOM):
+    """
+    Poissonian temporal occurrence model.
+    """
 
     def get_probability_one_or_more_occurrences(self, occurrence_rate):
         """
@@ -83,30 +119,13 @@ class PoissonTOM(object):
 
     def get_probability_no_exceedance(self, occurrence_rate, poes):
         """
-        Compute and return, for a number of ground motion levels and sites,
-        the probability that a rupture with annual occurrence rate given by
-        ``occurrence_rate`` and able to cause ground motion values higher than
-        a given level at a site with probability ``poes``, does not cause any
-        exceedance in the time window specified by the ``time_span`` parameter
-        given in the constructor.
+        See :meth:`superclass method
+        <BaseTOM.get_probability_no_exceedance>`
+        for spec of input and result values.
 
         The probability is computed using the following formula ::
 
             (1 - e ** (-occurrence_rate * time_span)) ** poes
-
-        :param occurrence_rate:
-            The average number of events per year.
-        :param poes:
-            2D numpy array containing conditional probabilities the the a
-            rupture occurrence causes a ground shaking value exceeding a
-            ground motion level at a site. First dimension represent sites,
-            second dimension intensity measure levels. ``poes`` can be obtained
-            calling the :meth:`method
-            <openquake.hazardlib.gsim.base.GroundShakingIntensityModel.get_poes>`.
-        :return:
-            2D numpy array containing probabilities of no exceedance. First
-            dimension represents sites, second dimensions intensity measure
-            levels.
         """
         p = self.get_probability_one_or_more_occurrences(occurrence_rate)
 
