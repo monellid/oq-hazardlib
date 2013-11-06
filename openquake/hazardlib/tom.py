@@ -25,13 +25,13 @@ import scipy.stats
 
 from openquake.hazardlib.slots import with_slots
 
-
+@with_slots
 class BaseTOM(object):
     """
     Base class for temporal occurrence model.
 
     :param time_span:
-        The time interval of interest, in years.
+        The time interval for which probabilities are computed, in years.
     :raises ValueError:
         If ``time_span`` is not positive.
     """
@@ -70,6 +70,91 @@ class BaseTOM(object):
             dimension represents sites, second dimensions intensity measure
             levels.
         """
+
+@with_slots
+class BrownianPassageTimeTOM(BaseTOM):
+    """
+    Temporal occurrence model based on Brownian Passage Time distribution, as
+    described in:
+
+    A Brownian Model for Recurrent Earthquakes, by Mark V. Matthewes, William L.
+    Ellsworth, and Paul. A. Reasenberg, Bullettin of the Seismological Society
+    of America, Vol. 92, No.6, pages 2233-2250, 2002.
+
+    :param time_span:
+        Float, the time interval for which probabilities are computed, in years.
+    :param elapsed_time:
+        Float, time since seismic source's last event, in years.
+    :param alpha:
+        Float, aperiodicity factor, that is the coefficient of variation of the
+        source recurrence time.
+    """
+    __slots__ = BaseTOM.__slots__ + 'elapsed_time alpha'.split()
+
+    def __init__(self, time_span, elapsed_time, alpha):
+        if elapsed_time <= 0:
+            raise ValueError('elapsed time must be positive')
+        if alpha <= 0:
+            raise ValueError('aperiodicity factor must be positive')
+        super(BrownianPassageTimeTOM, self).__init__(time_span)
+        self.elapsed_time = elapsed_time
+        self.alpha = alpha
+
+    def get_probability_no_exceedance(self, occurrence_rate, poes):
+        """
+        First compute probability of rupture to occurre once ``p1`` in the
+        time span specified in the constructor. This is done implementing
+        equation 17 page 2238 of Matthewes et al. 2002; that is the probability
+        of the rupture to occur in the time interval between ``elapsed_time``
+        and ``elapsed_time + time_span`` is computed as ::
+
+        (F(elapsed_time + time_span) - F(elapsed_time)) / (1 - F(elapsed_time))
+
+        where ``F`` is the cumulative distribution function for the Brownian
+        Passage Time distribution.
+
+        Given that ``time span`` is in general much smaller than event
+        recurrence time, the probability of having more than one rupture in
+        ``time_span`` is assumed 0.
+
+        By knowing the probability of observing one occurrence ``p1``, and the
+        probability of zero occurrences ``p0 = 1 - p1``, the probability of no
+        exceedance is computed as ::
+
+            p0 + p1 * (1 - poes)
+
+        which follows from the total probability theorem.
+        """
+        mu = 1. / occurrence_rate
+
+        num = self._cdf(self.elapsed_time + self.time_span, mu) - \
+              self._cdf(self.elapsed_time, mu)
+        den = 1 - self._cdf(self.elapsed_time, mu)
+
+        p1 = num / den
+        p0 = 1 - p1
+
+        return p0 + p1 * (1 - poes)
+
+    def _combine_variables(self, t, mu):
+        """
+        Implements equation 14 page 2237 of Matthewes et al. 2002.
+        """
+        u1 = (1. / self.alpha) * (math.sqrt(t / mu) - math.sqrt(mu / t))
+        u2 = (1. / self.alpha) * (math.sqrt(t / mu) + math.sqrt(mu / t))
+
+        return u1, u2
+
+    def _cdf(self, t, mu):
+        """
+        Compute and return cumulative distribution function value.
+
+        Implements equation 15 page 2237 of Matthewes et al. 2002.
+        """
+        cdf = scipy.stats.norm().cdf
+        u1, u2 = self._combine_variables(t, mu)
+
+        return cdf(u1) + math.exp(2 / self.alpha ** 2) * cdf(- u2)
 
 
 @with_slots
