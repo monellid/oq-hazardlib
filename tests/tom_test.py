@@ -70,25 +70,27 @@ class PoissonTOMTestCase(unittest.TestCase):
 
 class BrownianPassageTimeTOMTestCase(unittest.TestCase):
     def test_non_positive_time_span(self):
-        self.assertRaises(ValueError, BrownianPassageTimeTOM, -1, 1, 1)
-        self.assertRaises(ValueError, BrownianPassageTimeTOM, 0, 1, 1)
+        self.assertRaises(ValueError, BrownianPassageTimeTOM, -1, 2, 1, 1)
+        self.assertRaises(ValueError, BrownianPassageTimeTOM, 0, 2, 1, 1)
 
     def test_non_positive_elapsed_time(self):
-        self.assertRaises(ValueError, BrownianPassageTimeTOM, 1, -1, 1)
-        self.assertRaises(ValueError, BrownianPassageTimeTOM, 1, 0, 1)
+        self.assertRaises(ValueError, BrownianPassageTimeTOM, 1, 1, 2, 1)
+        self.assertRaises(ValueError, BrownianPassageTimeTOM, 1, 1, 1, 1)
 
     def test_non_positive_aperiodicity_factor(self):
-        self.assertRaises(ValueError, BrownianPassageTimeTOM, 1, 1, -1)
-        self.assertRaises(ValueError, BrownianPassageTimeTOM, 1, 1, 0)
+        self.assertRaises(ValueError, BrownianPassageTimeTOM, 1, 2, 1, -1)
+        self.assertRaises(ValueError, BrownianPassageTimeTOM, 1, 2, 1, 0)
 
     def test_get_probability_no_exceedance(self):
         # data taken from Japan seismic hazard model for the Nankai earthquake
         time_span = 50.
         rate = 1 / 90.1
-        elapsed_time = 65.0
+        reference_time = 2012
+        time_last_event = 1947
         alpha = 0.2
         poes = numpy.array([[0.9, 0.8, 0.7], [0.6, 0.5, 0.4]])
-        tom = BrownianPassageTimeTOM(time_span, elapsed_time, alpha)
+        tom = BrownianPassageTimeTOM(time_span, reference_time,
+                                     time_last_event, alpha)
         pne = tom.get_probability_no_exceedance(rate, poes)
 
         p1_expected = 9.02E-01

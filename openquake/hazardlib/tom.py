@@ -28,7 +28,9 @@ from openquake.hazardlib.slots import with_slots
 @with_slots
 class BaseTOM(object):
     """
-    Base class for temporal occurrence model.
+    Base class for a temporal occurrence model, that is a probability density
+    function allowing calculation of probability of earthquake rupture
+    occurrence in a time span.
 
     :param time_span:
         The time interval for which probabilities are computed, in years.
@@ -82,18 +84,26 @@ class BrownianPassageTimeTOM(BaseTOM):
     of America, Vol. 92, No.6, pages 2233-2250, 2002.
 
     :param time_span:
-        Float, the time interval for which probabilities are computed, in years.
-    :param elapsed_time:
-        Float, time since seismic source's last event, in years.
+        Float, the time interval probability are computed for, in years.
+    :param reference_time:
+        Float, the time from which ``time_span`` begins, in years
+    :param time_last_event:
+        Float, time of last event occurred in the source, in years
     :param alpha:
         Float, aperiodicity factor, that is the coefficient of variation of the
         source recurrence time.
+    :raises ValueError:
+        If ``time_span`` is not positive, if the elapsed time (
+        ``reference_time`` - ``time_last_event``) is not positive, if ``alpha``
+        is not positive
     """
     __slots__ = BaseTOM.__slots__ + 'elapsed_time alpha'.split()
 
-    def __init__(self, time_span, elapsed_time, alpha):
+    def __init__(self, time_span, reference_time, time_last_event, alpha):
+        elapsed_time = reference_time - time_last_event
         if elapsed_time <= 0:
-            raise ValueError('elapsed time must be positive')
+            raise ValueError('''elapsed time (reference time minus time of last
+            event) must be positive''')
         if alpha <= 0:
             raise ValueError('aperiodicity factor must be positive')
         super(BrownianPassageTimeTOM, self).__init__(time_span)
