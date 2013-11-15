@@ -45,6 +45,8 @@ class Site(object):
     :param id:
         Optional parameter with default None. If given, it should be an
         integer identifying the site univocally.
+    :param tr_dist:
+        Distance to subduction trench axis
 
     :raises ValueError:
         If any of ``vs30``, ``z1pt0`` or ``z2pt5`` is zero or negative.
@@ -53,9 +55,9 @@ class Site(object):
 
         :class:`Sites <Site>` are pickleable
     """
-    __slots__ = 'location vs30 vs30measured z1pt0 z2pt5 id'.split()
+    __slots__ = 'location vs30 vs30measured z1pt0 z2pt5 id tr_dist'.split()
 
-    def __init__(self, location, vs30, vs30measured, z1pt0, z2pt5, id=None):
+    def __init__(self, location, vs30, vs30measured, z1pt0, z2pt5, id=None, tr_dist=None):
         if not vs30 > 0:
             raise ValueError('vs30 must be positive')
         if not z1pt0 > 0:
@@ -68,6 +70,7 @@ class Site(object):
         self.z1pt0 = z1pt0
         self.z2pt5 = z2pt5
         self.id = id
+        self.tr_dist = tr_dist
 
     def __str__(self):
         """
@@ -119,6 +122,7 @@ class SiteCollection(object):
         self.vs30measured = numpy.zeros(len(sites), dtype=bool)
         self.z1pt0 = self.vs30.copy()
         self.z2pt5 = self.vs30.copy()
+        self.tr_dist = self.vs30.copy()
         lons = self.vs30.copy()
         lats = self.vs30.copy()
 
@@ -127,6 +131,7 @@ class SiteCollection(object):
             self.vs30measured[i] = sites[i].vs30measured
             self.z1pt0[i] = sites[i].z1pt0
             self.z2pt5[i] = sites[i].z2pt5
+            self.tr_dist[i] = sites[i].tr_dist
             lons[i] = sites[i].location.longitude
             lats[i] = sites[i].location.latitude
 
@@ -139,7 +144,7 @@ class SiteCollection(object):
         # subsequent calculation. note that this doesn't protect arrays from
         # being changed by calling itemset()
         for arr in (self.vs30, self.vs30measured, self.z1pt0, self.z2pt5,
-                    self.mesh.lons, self.mesh.lats):
+                    self.mesh.lons, self.mesh.lats, self.tr_dist):
             arr.flags.writeable = False
 
     def __iter__(self):
@@ -149,7 +154,7 @@ class SiteCollection(object):
         """
         for i, location in enumerate(self.mesh):
             yield Site(location, self.vs30[i], self.vs30measured[i],
-                       self.z1pt0[i], self.z2pt5[i])
+                       self.z1pt0[i], self.z2pt5[i], self.tr_dist[i])
 
     def expand(self, data, total_sites, placeholder):
         """
@@ -253,6 +258,7 @@ class SiteCollection(object):
         col.vs30measured = self.vs30measured.take(indices)
         col.z1pt0 = self.z1pt0.take(indices)
         col.z2pt5 = self.z2pt5.take(indices)
+        col.tr_dist = self.tr_dist.take(indices)
         col.mesh = Mesh(self.mesh.lons.take(indices),
                         self.mesh.lats.take(indices),
                         depths=None)
@@ -269,7 +275,7 @@ class SiteCollection(object):
             col.indices = indices
         # do the same as in the constructor
         for arr in (col.vs30, col.vs30measured, col.z1pt0, col.z2pt5,
-                    col.mesh.lons, col.mesh.lats):
+                    col.tr_dist, col.mesh.lons, col.mesh.lats):
             arr.flags.writeable = False
         return col
 

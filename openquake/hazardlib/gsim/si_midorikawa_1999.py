@@ -173,6 +173,38 @@ class SiMidorikawa1999SInter(SiMidorikawa1999Asc):
         return [std for stddev_type in stddev_types]
 
 
+class SiMidorikawa1999SInterNorthEastCorr(SiMidorikawa1999SInter):
+    """
+    GMPEs to be applied for interface events taking into account correction
+    for north east Japan.
+    """
+    REQUIRES_SITES_PARAMETERS = set('tr_dit',)
+
+    REQUIRES_DISTANCES = set(('rrup', 'rhypo'))
+
+    def get_mean_and_stddevs(self, sites, rup, dists, imt, stddev_types):
+        """
+        Implements equation 3.5.1-1 page 148 for mean value and equation
+        3.5.5-1 page 151 for total standard deviation.
+
+        See :meth:`superclass method
+        <.base.GroundShakingIntensityModel.get_mean_and_stddevs>`
+        for spec of input and result values.
+        """
+        mean = self._get_mean(imt, rup.mag, rup.hypo_depth, dists.rrup,
+                              d=-0.02)
+
+        logV1 = (-4.021e-5 * sites.tr_dist + 9.905e-3) * (rup.hypo_depth - 30.)
+        V2 = numpy.maximum(1, ((dists.rhypo / 300) ** 2.064) / (10 ** 0.012))
+
+        mean = numpy.exp(mean) * numpy.exp(logV1) * v2
+        mean = numpy.log(mean)
+
+        stddevs = self._get_stddevs(stddev_types, np.exp(mean))
+
+        return mean, stddevs
+
+
 class SiMidorikawa1999SSlab(SiMidorikawa1999SInter):
     """
     Implements GMPE developed by Hongjun Si and Saburoh Midorikawa (1999) as
@@ -195,6 +227,37 @@ class SiMidorikawa1999SSlab(SiMidorikawa1999SInter):
         for spec of input and result values.
         """
         mean = self._get_mean(imt, rup.mag, rup.hypo_depth, dists.rrup, d=0.12)
+        stddevs = self._get_stddevs(stddev_types, np.exp(mean))
+
+        return mean, stddevs
+
+
+class SiMidorikawa1999SSlabNorthEastCorr(SiMidorikawa1999SSlab):
+    """
+    GMPEs to be applied for intraslab events taking into account correction
+    for north east Japan.
+    """
+    REQUIRES_SITES_PARAMETERS = set('tr_dit',)
+
+    REQUIRES_DISTANCES = set(('rrup', 'rhypo'))
+
+    def get_mean_and_stddevs(self, sites, rup, dists, imt, stddev_types):
+        """
+        Implements equation 3.5.1-1 page 148 for mean value and equation
+        3.5.5-1 page 151 for total standard deviation.
+
+        See :meth:`superclass method
+        <.base.GroundShakingIntensityModel.get_mean_and_stddevs>`
+        for spec of input and result values.
+        """
+        mean = self._get_mean(imt, rup.mag, rup.hypo_depth, dists.rrup, d=0.12)
+
+        logV1 = (-4.021e-5 * sites.tr_dist + 9.905e-3) * (rup.hypo_depth - 30.)
+        V2 = numpy.maximum(1, ((dists.rhypo / 300) ** 2.064) / (10 ** 0.012))
+
+        mean = numpy.exp(mean) * numpy.exp(logV1) * v2
+        mean = numpy.log(mean)
+
         stddevs = self._get_stddevs(stddev_types, np.exp(mean))
 
         return mean, stddevs
