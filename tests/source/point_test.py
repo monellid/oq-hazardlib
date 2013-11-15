@@ -20,7 +20,7 @@ import numpy
 
 from openquake.hazardlib.const import TRT
 from openquake.hazardlib.source.point import PointSource
-from openquake.hazardlib.source.rupture import ProbabilisticRupture
+from openquake.hazardlib.source.rupture import ParametricProbabilisticRupture
 from openquake.hazardlib.mfd import TruncatedGRMFD, EvenlyDiscretizedMFD
 from openquake.hazardlib.scalerel.peer import PeerMSR
 from openquake.hazardlib.scalerel.wc1994 import WC1994
@@ -28,6 +28,7 @@ from openquake.hazardlib.geo import Point, PlanarSurface, NodalPlane, Polygon
 from openquake.hazardlib.pmf import PMF
 from openquake.hazardlib.tom import PoissonTOM
 from openquake.hazardlib.site import Site, SiteCollection
+from openquake.hazardlib.tom import PoissonTOM
 
 from tests.geo.surface import _planar_test_data as planar_surface_test_data
 from tests import assert_pickleable
@@ -46,7 +47,8 @@ def make_point_source(**kwargs):
         'lower_seismogenic_depth': 4.9,
         'magnitude_scaling_relationship': PeerMSR(),
         'rupture_aspect_ratio': 1.333,
-        'rupture_mesh_spacing': 1.234
+        'rupture_mesh_spacing': 1.234,
+        'temporal_occurrence_model': PoissonTOM(50.)
     }
     default_arguments.update(kwargs)
     kwargs = default_arguments
@@ -129,14 +131,14 @@ class PointSourceIterRupturesTestCase(unittest.TestCase):
         hypocenter_distribution = PMF([(1, hypocenter_depth)])
         magnitude_scaling_relationship = PeerMSR()
         rupture_aspect_ratio = aspect_ratio
+        tom = PoissonTOM(time_span=50)
         point_source = PointSource(
             source_id, name, trt, mfd, rupture_mesh_spacing,
-            magnitude_scaling_relationship, rupture_aspect_ratio,
+            magnitude_scaling_relationship, rupture_aspect_ratio, tom,
             upper_seismogenic_depth, lower_seismogenic_depth,
             location, nodal_plane_distribution, hypocenter_distribution
         )
-        tom = PoissonTOM(time_span=50)
-        ruptures = list(point_source.iter_ruptures(tom))
+        ruptures = list(point_source.iter_ruptures())
         self.assertEqual(len(ruptures), 1)
         [rupture] = ruptures
         self.assertIs(rupture.temporal_occurrence_model, tom)
@@ -305,11 +307,11 @@ class PointSourceIterRupturesTestCase(unittest.TestCase):
                                        (hypocenter2_weight, hypocenter2)])
         point_source = PointSource(
             source_id, name, trt, mfd, rupture_mesh_spacing,
-            magnitude_scaling_relationship, rupture_aspect_ratio,
+            magnitude_scaling_relationship, rupture_aspect_ratio, tom,
             upper_seismogenic_depth, lower_seismogenic_depth,
             location, nodal_plane_distribution, hypocenter_distribution
         )
-        actual_ruptures = list(point_source.iter_ruptures(tom))
+        actual_ruptures = list(point_source.iter_ruptures())
         self.assertEqual(len(actual_ruptures), 8)
         expected_ruptures = {
             (mag1, nodalplane1.rake, hypocenter1): (
@@ -352,7 +354,8 @@ class PointSourceIterRupturesTestCase(unittest.TestCase):
                 (actual_rupture.mag, actual_rupture.rake,
                  actual_rupture.hypocenter.depth)
             ]
-            self.assertTrue(isinstance(actual_rupture, ProbabilisticRupture))
+            self.assertTrue(isinstance(actual_rupture,
+                ParametricProbabilisticRupture))
             self.assertEqual(actual_rupture.occurrence_rate,
                              expected_occurrence_rate)
             self.assertIs(actual_rupture.temporal_occurrence_model, tom)
@@ -388,11 +391,12 @@ class PointSourceIterRupturesTestCase(unittest.TestCase):
                  mfd=mfd, rupture_mesh_spacing=1,
                  magnitude_scaling_relationship=WC1994(),
                  rupture_aspect_ratio=1.,
+                 temporal_occurrence_model=PoissonTOM(50.),
                  upper_seismogenic_depth=0, lower_seismogenic_depth=26,
                  location=Point(-165.125, -83.600),
                  nodal_plane_distribution=nodal_plane_dist,
                  hypocenter_distribution=PMF([(1., 9.)]))
-        ruptures = list(src.iter_ruptures(PoissonTOM(50.)))
+        ruptures = list(src.iter_ruptures())
         self.assertEqual(len(ruptures), 1)
 
 
@@ -594,7 +598,7 @@ class PointSourceRuptureFilterTestCase(unittest.TestCase):
         bottom_right = mid_right.point_at(hwidth, vwidth, azimuth=180)
         surface = PlanarSurface(1, 2, dip, top_left, top_right,
                                 bottom_right, bottom_left)
-        rupture = ProbabilisticRupture(
+        rupture = ParametricProbabilisticRupture(
             mag=1, rake=2, tectonic_region_type=TRT.VOLCANIC,
             hypocenter=self.hypocenter, surface=surface,
             source_typology=PointSource, occurrence_rate=3,

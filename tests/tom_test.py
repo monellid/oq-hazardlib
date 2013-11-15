@@ -17,7 +17,7 @@ import unittest
 
 import numpy
 
-from openquake.hazardlib.tom import PoissonTOM
+from openquake.hazardlib.tom import PoissonTOM, BrownianPassageTimeTOM
 
 
 class PoissonTOMTestCase(unittest.TestCase):
@@ -54,3 +54,45 @@ class PoissonTOMTestCase(unittest.TestCase):
         mean = sum(tom.sample_number_of_occurrences(rate)
                    for i in xrange(num_samples)) / float(num_samples)
         self.assertAlmostEqual(mean, rate * time_span, delta=1e-3)
+
+    def test_get_probability_no_exceedance(self):
+        time_span = 50.
+        rate = 0.01
+        poes = numpy.array([[0.9, 0.8, 0.7], [0.6, 0.5, 0.4]])
+        tom = PoissonTOM(time_span)
+        pne = tom.get_probability_no_exceedance(rate, poes)
+        numpy.testing.assert_allclose(
+            pne,
+            numpy.array([[0.6376282, 0.6703200, 0.7046881],
+                         [0.7408182, 0.7788008, 0.8187308]])
+        )
+
+
+class BrownianPassageTimeTOMTestCase(unittest.TestCase):
+    def test_non_positive_time_span(self):
+        self.assertRaises(ValueError, BrownianPassageTimeTOM, -1, 2, 1, 1)
+        self.assertRaises(ValueError, BrownianPassageTimeTOM, 0, 2, 1, 1)
+
+    def test_non_positive_elapsed_time(self):
+        self.assertRaises(ValueError, BrownianPassageTimeTOM, 1, 1, 2, 1)
+        self.assertRaises(ValueError, BrownianPassageTimeTOM, 1, 1, 1, 1)
+
+    def test_non_positive_aperiodicity_factor(self):
+        self.assertRaises(ValueError, BrownianPassageTimeTOM, 1, 2, 1, -1)
+        self.assertRaises(ValueError, BrownianPassageTimeTOM, 1, 2, 1, 0)
+
+    def test_get_probability_no_exceedance(self):
+        # data taken from Japan seismic hazard model for the Nankai earthquake
+        time_span = 50.
+        rate = 1 / 90.1
+        reference_time = 2012
+        time_last_event = 1947
+        alpha = 0.2
+        poes = numpy.array([[0.9, 0.8, 0.7], [0.6, 0.5, 0.4]])
+        tom = BrownianPassageTimeTOM(time_span, reference_time,
+                                     time_last_event, alpha)
+        pne = tom.get_probability_no_exceedance(rate, poes)
+
+        p1_expected = 9.02E-01
+        pne_expected = (1 - p1_expected) + p1_expected * (1 - poes)
+        numpy.testing.assert_allclose(pne, pne_expected, rtol=1e-3)
