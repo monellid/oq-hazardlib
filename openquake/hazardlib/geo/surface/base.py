@@ -239,15 +239,10 @@ class BaseQuadrilateralSurface(BaseSurface):
         the minimum Rx distance value computed.
         """
         top_edge = self.get_mesh()[0:1]
-
-        # compute top edge strike
-        first = Point(
-            top_edge.lons[0, 0], top_edge.lats[0, 0], top_edge.depths[0, 0]
-        )
-        last = Point(
-            top_edge.lons[0, -1], top_edge.lats[0, -1], top_edge.depths[0, -1]
-        )
-        strike = first.azimuth(last)
+        strike = self.get_strike()
+        # azimuth value limiting region of validity of Rx distance calculation
+        # for a given segment
+        limit_azimuth = (strike + 90.) % 360.
 
         # compute Rx distance with respect to first segment
         p1 = Point(
@@ -261,8 +256,8 @@ class BaseQuadrilateralSurface(BaseSurface):
             p1.longitude, p1.latitude, azimuth, mesh.lons, mesh.lats
         )
 
-        # loop over remaining segments, compute Rx distance and azimuth of mesh
-        # points
+        # loop over remaining segments. For each segment compute Rx distance
+        # and mesh points azimuths with respect to segment's first point
         for i in range(1, top_edge.lons.shape[1] - 1):
             p1 = Point(
                 top_edge.lons[0, i], top_edge.lats[0, i], top_edge.depths[0, i]
@@ -276,43 +271,15 @@ class BaseQuadrilateralSurface(BaseSurface):
                 p1.longitude, p1.latitude, segment_azimuth, mesh.lons, mesh.lats
             )
 
-            lons1 = numpy.zeros_like(mesh.lons) + p1.longitude
-            lats1 = numpy.zeros_like(mesh.lats) + p1.latitude
-            mesh_azimuth = geodetic.azimuth(lons1, lats1, mesh.lons, mesh.lats)
+            mesh_azimuth = (
+                geodetic.azimuth(p1.longitude, p1.latitude, mesh.lons, mesh.lats) -
+                limit_azimuth
+            ) % 360
 
-            limit_azimuth = (strike + 90.)
-
-            idx = (
-                (mesh_azimuth > 0) &
-                (mesh_azimuth < limit_azimuth)
-            )
-            rx_dist[idx] = new_rx_dist[idx]
-
-            idx = (
-                (mesh_azimuth > limit_azimuth + 180.) & (mesh_azimuth <= 360)
-            )
+            idx = (mesh_azimuth >= 180) & (mesh_azimuth <= 360)
             rx_dist[idx] = new_rx_dist[idx]
 
         return rx_dist
-
-        #dists = []
-        #for i in range(top_edge.lons.shape[1] - 1):
-        #    p1 = Point(
-        #        top_edge.lons[0, i], top_edge.lats[0, i], top_edge.depths[0, i]
-        #    )
-        #    p2 = Point(
-        #        top_edge.lons[0, i + 1], top_edge.lats[0, i + 1],
-        #        top_edge.depths[0, i + 1]
-        #    )
-        #    azimuth = p1.azimuth(p2)
-        #    dists.append(
-        #        geodetic.distance_to_arc(
-        #            p1.longitude, p1.latitude, azimuth, mesh.lons, mesh.lats
-        #        )
-        #    )
-        #dists = numpy.array(dists)
-
-        #return numpy.min(dists, axis=0)
 
     def get_top_edge_depth(self):
         """
